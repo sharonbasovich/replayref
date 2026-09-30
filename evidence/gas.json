@@ -1,0 +1,44 @@
+{
+  "generated_at": "2026-09-30T18:23:57.355Z",
+  "chain": "nitro-devnode local (chain id 412346)",
+  "referee": "0x525c2aba45f66987217323e8a05ea400c65d06dc",
+  "rows": [
+    {
+      "target_ticks": null,
+      "ticks": 300,
+      "tx": "0x45c8f5a26c541b8e004b7395652346cc3837c6ca4b6a81ed5d2f9a67b4c3a62a",
+      "gas_used": "71956",
+      "status": "success"
+    },
+    {
+      "target_ticks": null,
+      "ticks": 904,
+      "tx": "0x68d704561a34e838ff0400cf633cf91e2c0195a33661fec88bbcc8dcdef2b123",
+      "gas_used": "81068",
+      "status": "success"
+    },
+    {
+      "target_ticks": null,
+      "ticks": 1045,
+      "tx": "0xd6d652fb60b3b4b8d5793dacededbf88869d39aa9c86d3c37884b03bd1b6fbe5",
+      "gas_used": "83405",
+      "status": "success"
+    },
+    {
+      "kind": "verify_eth_call",
+      "ticks": 300,
+      "gas_estimated": "67724"
+    },
+    {
+      "kind": "verify_eth_call",
+      "ticks": 904,
+      "gas_estimated": "76944"
+    },
+    {
+      "kind": "verify_eth_call",
+      "ticks": 1045,
+      "gas_estimated": "79309"
+    }
+  ],
+  "note": "Gas on the local nitro devnode, real receipts. Sepolia figures need a funded deployer (human dependency)."
+}

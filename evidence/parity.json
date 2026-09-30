@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-09-30T18:23:56.240Z",
+  "chain": "nitro-devnode local (chain id 412346)",
+  "referee": "0x525c2aba45f66987217323e8a05ea400c65d06dc",
+  "challenge_id": 0,
+  "challenge_seed": "7777777",
+  "block": "13",
+  "n": 1200,
+  "mismatches": 0,
+  "samples": [],
+  "note": "LOCAL devnode evidence only — not a public-chain deployment."
+}

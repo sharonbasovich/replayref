@@ -1,0 +1,172 @@
+{
+  "generated_at": "2026-09-30T18:23:57.082Z",
+  "chain": "nitro-devnode local (chain id 412346)",
+  "referee": "0x525c2aba45f66987217323e8a05ea400c65d06dc",
+  "n": 2398,
+  "rejected": 1185,
+  "accepted_unexpectedly": 1213,
+  "claims_gt0": 545,
+  "claims_gt0_accepted": 0,
+  "onchain_native_parity_mismatches": 0,
+  "per_mutation": {
+    "flip_bit": {
+      "n": 399,
+      "rejected": 102,
+      "accepted_unexpectedly": 297,
+      "accepted_gt0": 0
+    },
+    "claim_plus1": {
+      "n": 400,
+      "rejected": 400,
+      "accepted_unexpectedly": 0,
+      "accepted_gt0": 0
+    },
+    "overlong": {
+      "n": 400,
+      "rejected": 400,
+      "accepted_unexpectedly": 0,
+      "accepted_gt0": 0
+    },
+    "truncate": {
+      "n": 399,
+      "rejected": 58,
+      "accepted_unexpectedly": 341,
+      "accepted_gt0": 0
+    },
+    "wrong_seed": {
+      "n": 400,
+      "rejected": 98,
+      "accepted_unexpectedly": 302,
+      "accepted_gt0": 0
+    },
+    "nonzero_pad": {
+      "n": 400,
+      "rejected": 127,
+      "accepted_unexpectedly": 273,
+      "accepted_gt0": 0
+    }
+  },
+  "accepted_samples": [
+    {
+      "id": "t00000",
+      "m": "flip_bit",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00007",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00004",
+      "m": "wrong_seed",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00005",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00010",
+      "m": "wrong_seed",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00001",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00017",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00024",
+      "m": "flip_bit",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00029",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00006",
+      "m": "flip_bit",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00012",
+      "m": "flip_bit",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00013",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00025",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00028",
+      "m": "wrong_seed",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00011",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00031",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00016",
+      "m": "wrong_seed",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00040",
+      "m": "wrong_seed",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00041",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00061",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    }
+  ],
+  "note": "claim = native base score + claim_offset. verify() returning ==claim counts as forgery success. A 0-score claim is true of any crashing log, so forgery success is only meaningful on claims > 0."
+}

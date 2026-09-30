@@ -1,0 +1,218 @@
+#!/usr/bin/env node
+// parity.mjs — onchain parity + tamper + gas evidence against the local Nitro
+// devnode (chain 412346). LOCAL ONLY: uses the node's built-in dev account,
+// which is a public, non-secret fixture hardcoded in OffchainLabs' own
+// run-dev-node.sh. Nothing here touches a public chain.
+//
+//   node scripts/parity.mjs [--rpc http://127.0.0.1:8547] [--referee 0x...]
+//
+// Writes: evidence/parity.json, evidence/tamper.json, evidence/gas.json
+
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  createPublicClient, createWalletClient, http, parseAbi, defineChain,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const arg = (n, d) => {
+  const i = process.argv.indexOf(n);
+  return i >= 0 ? process.argv[i + 1] : d;
+};
+const RPC = arg("--rpc", "http://127.0.0.1:8547");
+const REFEREE = arg("--referee", "0x525c2aba45f66987217323e8a05ea400c65d06dc");
+const CHALLENGE_SEED = 7777777n;
+// nitro-devnode built-in dev account (public fixture, local-only)
+const DEV_KEY = "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
+
+const chain = defineChain({
+  id: 412346, name: "nitro-devnode",
+  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: [RPC] } },
+});
+const account = privateKeyToAccount(DEV_KEY);
+const pub = createPublicClient({ chain, transport: http() });
+const wal = createWalletClient({ account, chain, transport: http() });
+
+const ABI = parseAbi([
+  "function createChallenge(uint64 seed, uint64 start, uint64 end, address season) returns (uint256)",
+  "function verify(uint256 id, bytes inputs) view returns (uint256)",
+  "function submit(uint256 id, bytes inputs, uint256 claimed) returns (uint256)",
+  "function numChallenges() view returns (uint256)",
+  "function challengeSeed(uint256 id) view returns (uint256)",
+  "function best(uint256 id, address player) view returns (uint256)",
+  "function top(uint256 id, uint256 i) view returns (address, uint256)",
+  "error ScoreMismatch(uint32 computed)",
+  "error InvalidInputs()",
+  "error NotInWindow(uint64 start, uint64 end, uint64 now)",
+  "error ChallengeNotFound(uint256 id)",
+]);
+
+const j = (p) => readFileSync(resolve(root, p), "utf8").trim().split("\n").map(JSON.parse);
+const valid = j("tests/corpus/valid.jsonl");
+const tamper = j("tests/corpus/tamper.jsonl");
+const nativeCh = new Map(j("tests/out/native_at_challenge.jsonl").map((r) => [r.id, r.result]));
+const nativeBase = new Map(j("tests/out/native_base.jsonl").map((r) => [r.id, r.result]));
+const nativeTampCh = new Map(j("tests/out/native_tamper_challenge.jsonl").map((r) => [r.id, r.result]));
+
+const errName = (e) =>
+  e?.cause?.data?.errorName ?? e?.data?.errorName ?? e?.shortMessage?.match(/Error: (\w+)/)?.[1] ?? "revert";
+
+async function ethVerify(id, inputsHex) {
+  try {
+    const v = await pub.readContract({
+      address: REFEREE, abi: ABI, functionName: "verify",
+      args: [id, `0x${inputsHex}`],
+    });
+    return { score: v };
+  } catch (e) {
+    return { revert: errName(e) };
+  }
+}
+
+async function main() {
+  const block0 = await pub.getBlockNumber();
+  // 1. ensure challenge 0 exists with our seed
+  let n = await pub.readContract({ address: REFEREE, abi: ABI, functionName: "numChallenges" });
+  if (n === 0n) {
+    const hash = await wal.writeContract({
+      address: REFEREE, abi: ABI, functionName: "createChallenge",
+      args: [CHALLENGE_SEED, 1n, 4102444800n, "0x0000000000000000000000000000000000000000"],
+    });
+    await pub.waitForTransactionReceipt({ hash });
+    console.log("created challenge 0 seed", CHALLENGE_SEED.toString());
+  }
+  const onchainSeed = await pub.readContract({ address: REFEREE, abi: ABI, functionName: "challengeSeed", args: [0n] });
+  if (onchainSeed !== CHALLENGE_SEED) throw new Error(`challenge seed ${onchainSeed} != ${CHALLENGE_SEED}`);
+
+  // 2. parity: onchain verify == native sim under the challenge seed
+  const t0 = Date.now();
+  let mismatches = [];
+  const scoreById = new Map();
+  const CHUNK = 32;
+  for (let i = 0; i < valid.length; i += CHUNK) {
+    await Promise.all(valid.slice(i, i + CHUNK).map(async (e) => {
+      const c = await ethVerify(0n, e.inputs);
+      const nat = nativeCh.get(e.id);
+      const natScore = nat?.score !== undefined ? BigInt(nat.score) : null;
+      scoreById.set(e.id, c.score ?? null);
+      const agree = (c.revert && nat?.reject) || (c.score !== undefined && c.score === natScore);
+      if (!agree) mismatches.push({ id: e.id, onchain: c, native: nat });
+    }));
+    process.stderr.write(`\rparity ${Math.min(i + CHUNK, valid.length)}/${valid.length}`);
+  }
+  console.error("");
+  const parity = {
+    generated_at: new Date().toISOString(),
+    chain: "nitro-devnode local (chain id 412346)",
+    referee: REFEREE, challenge_id: 0, challenge_seed: CHALLENGE_SEED.toString(),
+    block: block0.toString(), n: valid.length,
+    mismatches: mismatches.length, samples: mismatches.slice(0, 20),
+    note: "LOCAL devnode evidence only — not a public-chain deployment.",
+  };
+
+  // 3. tamper corpus. Forgery only matters on claims > 0: a score-0 claim is
+  // trivially "true" for any crashing log and cannot be distinguished.
+  let accepted_unexpectedly = 0, rejected = 0;
+  let claims_gt0 = 0, claims_gt0_accepted = 0;
+  let tamper_parity_mismatches = 0;
+  const perMutation = {};
+  const acceptedSamples = [];
+  for (let i = 0; i < tamper.length; i += CHUNK) {
+    await Promise.all(tamper.slice(i, i + CHUNK).map(async (e) => {
+      const base = nativeBase.get(e.base_id);
+      const claim = BigInt(base?.score ?? 0) + BigInt(e.claim_offset ?? 0);
+      const c = await ethVerify(0n, e.inputs);
+      const pass = c.score !== undefined && c.score === claim;
+      // onchain-vs-native parity under the challenge seed
+      const nat = nativeTampCh.get(e.id);
+      const agree = (c.revert && nat?.reject) ||
+        (c.score !== undefined && nat?.score !== undefined && c.score === BigInt(nat.score));
+      if (!agree) tamper_parity_mismatches++;
+      perMutation[e.mutation] ??= { n: 0, rejected: 0, accepted_unexpectedly: 0, accepted_gt0: 0 };
+      perMutation[e.mutation].n++;
+      if (claim > 0n) claims_gt0++;
+      if (pass) {
+        accepted_unexpectedly++;
+        perMutation[e.mutation].accepted_unexpectedly++;
+        if (claim > 0n) { claims_gt0_accepted++; perMutation[e.mutation].accepted_gt0++; }
+        if (acceptedSamples.length < 20) acceptedSamples.push({ id: e.id, m: e.mutation, claim: claim.toString(), score: c.score?.toString() });
+      } else {
+        rejected++;
+        perMutation[e.mutation].rejected++;
+      }
+    }));
+    process.stderr.write(`\rtamper ${Math.min(i + CHUNK, tamper.length)}/${tamper.length}`);
+  }
+  console.error("");
+  const tamperReport = {
+    generated_at: new Date().toISOString(), chain: parity.chain, referee: REFEREE,
+    n: tamper.length, rejected, accepted_unexpectedly,
+    claims_gt0, claims_gt0_accepted,
+    onchain_native_parity_mismatches: tamper_parity_mismatches,
+    per_mutation: perMutation,
+    accepted_samples: acceptedSamples,
+    note: "claim = native base score + claim_offset. verify() returning ==claim counts as forgery success. A 0-score claim is true of any crashing log, so forgery success is only meaningful on claims > 0.",
+  };
+
+  // 4. gas: real submit txs at varying tick counts + a few verify estimates
+  const want = [300, 900, 1800];
+  const byTicks = want.map((w) => {
+    let best = null;
+    for (const e of valid) {
+      const nat = nativeCh.get(e.id);
+      if (nat?.status === "timeout" ? w === 1800 : true) {
+        const d = Math.abs((nat?.ticks ?? 0) - w);
+        if (!best || d < best.d) best = { e, d, ticks: nat?.ticks };
+      }
+    }
+    return best;
+  });
+  const gasRows = [];
+  for (const b of byTicks) {
+    if (!b) continue;
+    const score = scoreById.get(b.e.id);
+    if (score === null || score === undefined) continue;
+    try {
+      const hash = await wal.writeContract({
+        address: REFEREE, abi: ABI, functionName: "submit",
+        args: [0n, `0x${b.e.inputs}`, score],
+      });
+      const rc = await pub.waitForTransactionReceipt({ hash });
+      gasRows.push({ target_ticks: null, ticks: b.ticks, tx: hash, gas_used: rc.gasUsed.toString(), status: rc.status });
+    } catch (e) {
+      gasRows.push({ ticks: b.ticks, error: errName(e) });
+    }
+  }
+  // verify() estimate at same ticks
+  for (const b of byTicks) {
+    if (!b) continue;
+    try {
+      const g = await pub.estimateContractGas({
+        address: REFEREE, abi: ABI, functionName: "verify",
+        args: [0n, `0x${b.e.inputs}`], account: account.address,
+      });
+      gasRows.push({ kind: "verify_eth_call", ticks: b.ticks, gas_estimated: g.toString() });
+    } catch (e) {
+      gasRows.push({ kind: "verify_eth_call", ticks: b.ticks, error: errName(e) });
+    }
+  }
+  const gas = {
+    generated_at: new Date().toISOString(), chain: parity.chain, referee: REFEREE,
+    rows: gasRows,
+    note: "Gas on the local nitro devnode, real receipts. Sepolia figures need a funded deployer (human dependency).",
+  };
+
+  mkdirSync(resolve(root, "evidence"), { recursive: true });
+  writeFileSync(resolve(root, "evidence/parity.json"), JSON.stringify(parity, null, 2));
+  writeFileSync(resolve(root, "evidence/tamper.json"), JSON.stringify(tamperReport, null, 2));
+  writeFileSync(resolve(root, "evidence/gas.json"), JSON.stringify(gas, null, 2));
+  console.log(`parity: n=${parity.n} mismatches=${mismatches.length}`);
+  console.log(`tamper: n=${tamperReport.n} rejected=${rejected} accepted_unexpectedly=${accepted_unexpectedly} (claims>0: ${claims_gt0_accepted}/${claims_gt0}, parity mismatches: ${tamper_parity_mismatches})`);
+  console.log(`gas rows:`, JSON.stringify(gasRows));
+  console.log(`elapsed ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });

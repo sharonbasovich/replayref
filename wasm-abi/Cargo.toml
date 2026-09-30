@@ -1,0 +1,12 @@
+[package]
+name = "wasm-abi"
+version = "0.1.0"
+edition = "2021"
+description = "Raw-ABI wasm32 wrapper over ref-core for the browser game (no wasm-bindgen)"
+license = "MIT"
+
+[dependencies]
+ref-core = { path = "../core" }
+
+[lib]
+crate-type = ["cdylib"]

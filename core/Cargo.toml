@@ -1,0 +1,17 @@
+[package]
+name = "ref-core"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic integer-only lander simulation shared by the browser (WASM) and the onchain referee"
+license = "MIT"
+
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1"
+
+[features]
+default = []
+
+[lib]
+crate-type = ["rlib"]

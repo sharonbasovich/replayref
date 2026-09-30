@@ -1,0 +1,10 @@
+{
+  "seed": "0xc0ffee42",
+  "inputs": "05414001",
+  "expected": {
+    "status": "crashed",
+    "ticks": 275,
+    "fuel_left": 894,
+    "score": 0
+  }
+}

@@ -179,18 +179,36 @@ impl Referee {
         Ok(self.challenge_seed.get(id).to())
     }
 
-    /// Strictly-greater insert keeps ties with the earlier block.
+    /// Strictly-greater insert keeps ties with the earlier block. A player
+    /// holds at most one slot: any existing entry of theirs is evicted and
+    /// the rest compacted before the new best is placed, so improving your
+    /// own score can never push other players off the board.
     fn insert_top(&mut self, id: U256, player: Address, score: u32) {
         let score_u = U256::from(score);
-        let mut slot: Option<usize> = None;
         for i in 0..3usize {
-            let s = self.top_score.getter(id).get(U256::from(i));
-            if score_u > s {
-                slot = Some(i);
+            if self.top_player.getter(id).get(U256::from(i)) == player {
+                for j in i..2usize {
+                    let p = self.top_player.getter(id).get(U256::from(j + 1));
+                    let s = self.top_score.getter(id).get(U256::from(j + 1));
+                    self.top_player.setter(id).setter(U256::from(j)).set(p);
+                    self.top_score.setter(id).setter(U256::from(j)).set(s);
+                }
+                self.top_player.setter(id).setter(U256::from(2)).set(Address::ZERO);
+                self.top_score.setter(id).setter(U256::from(2)).set(U256::ZERO);
                 break;
             }
         }
-        let Some(slot) = slot else { return };
+        let mut slot = 3usize;
+        for i in 0..3usize {
+            let s = self.top_score.getter(id).get(U256::from(i));
+            if score_u > s {
+                slot = i;
+                break;
+            }
+        }
+        if slot == 3 {
+            return;
+        }
         // shift down
         for i in (slot + 1..3usize).rev() {
             let prev = U256::from(i - 1);
@@ -221,6 +239,48 @@ mod tests {
         "41041141a4aaf67f55d54d441041441011440411440411414455555541441011" "441011440411410411414490aadaff5555771041441011440411440411414410"
         "4144101144041144041141441041441011440411440411414410414410114404" "11440411414410414410114404114404114144104104"
     );
+
+    const L_12282: [u8; 246] = hex!(
+        "ffff00000000000000000000000000114144a4aa556604114144104144101144" "0411440411414410414410114404114404114144104144101144041144041141"
+        "4410414410114404114404114144104144101154555515114404114404114144" "10414410114404114404114144104144101144041144041141441041441011aa"
+        "6aff5755dd114410114404114104114144101144101144041141555555114144" "104184aadaff55557d4410114410114404114104114144101144101144041141"
+        "0411414410114410114404114104114144101144101144041141041141441011" "44101144041141041141441011441011440411410411"
+    );
+    const L_12293: [u8; 246] = hex!(
+        "ffff000000000000000000000000001141444444101191aa5699414410114404" "1144041141441041441011440411440411414410414410114404114404114144"
+        "1041441011440411440411414490aadaff5555575555d5414410414410114404" "114404114184aadaff55557d0411414410114410114404114104114144aa6aff"
+        "57557d441041441011440411440411414410414410114404115555550511a1aa" "f67f55d51d440411414410414410114404114404114144104144101144041144"
+        "0411414410414410114404114404114144104144101144041144041141441041" "4410114404114404114144104144101144041144a802"
+    );
+    const L_12301A: [u8; 244] = hex!(
+        "ffff00000000000000000000000000114144444410111141444404a96a552611" "440411414410414410114404114404114144104144101144041144041181aada"
+        "f67f55557d4410114410a1aaf6abfd5f5555555555d51d414410114410114404" "114104114144101144101144041141041141a8aafd5f55d54d44104144101144"
+        "04114404114144104144aa6aff57557d44101144101144445555554404114144" "10414410114404114404a1aaf67f555537114104114144101144101144041141"
+        "0411414410114410114404114104114144101144101144041141041141441011" "4410114404114104114144101144101144041101"
+    );
+    const L_12301B: [u8; 244] = hex!(
+        "ffff00000000000000000000000000114144444410111141aa5a954904114144" "1011441011440411410411414410114410114404114104114144101144101144"
+        "04114104114184aadabf6aff575555d54704555555450411410411414410a9aa" "fd5f5575134144101144041144041141a4aaf67f55d54d041141441011441011"
+        "4404114104114144101144aa6aff57557d441011440411545555151144041141" "441041441011440411440411414410414410114404114404aa6aff5755750711"
+        "4144104144101144041144041141441041441011440411440411414410414410" "1144041144041141441041441011440411440401"
+    );
+    const L_12310: [u8; 243] = hex!(
+        "ffff000000000000000000000000001141444444aa5a65061141041141441011" "4410114404114104114144101144101144041141041141441011441011440411"
+        "4104114144101144101144041141041141441011545555151144101144041141" "a8aafd5f55d5470411414410414410114404114404114144aa6aff57557d0411"
+        "414410114410114404114104114144101144101144041141041155aa6aff5755" "5555d54d44104144101144041144041141441041441011440411440411414410"
+        "4144101144041144041141441041441011440411440411414410414410114404" "11440411414410414410114404114404114144"
+    );
+
+    fn top_row(r: &Referee, i: u64) -> (Address, U256) {
+        r.top(U256::ZERO, U256::from(i))
+    }
+
+    fn submit_as(r: &mut Referee, vm: &TestVM, player: u8, log: &[u8], score: u64) {
+        vm.set_sender(Address::from([player; 20]));
+        r.submit(U256::ZERO, Bytes::from(log.to_vec()), U256::from(score))
+            .ok()
+            .unwrap();
+    }
 
     fn vm() -> TestVM {
         let vm = TestVM::new();
@@ -335,5 +395,69 @@ mod tests {
         // slot 1 holds the zero-address default, not the score-0 player
         let (tp1, ts1) = r.top(id, U256::from(1));
         assert_eq!((tp1, ts1), (Address::ZERO, U256::ZERO));
+    }
+
+    #[test]
+    fn leaderboard_evicts_prior_entry_when_player_improves() {
+        // the P1 repro: p9 lands once, p1 improves three times — p1 must hold
+        // exactly ONE slot; p9 is never evicted by p1's self-improvement.
+        let vm = vm();
+        let mut r = setup(&vm);
+        submit_as(&mut r, &vm, 0x9, &L_12282, 12282);
+        submit_as(&mut r, &vm, 0x1, &L_12293, 12293);
+        submit_as(&mut r, &vm, 0x1, &L_12301A, 12301);
+        submit_as(&mut r, &vm, 0x1, &L_12310, 12310);
+
+        let p1 = Address::from([0x1; 20]);
+        let p9 = Address::from([0x9; 20]);
+        assert_eq!(top_row(&r, 0), (p1, U256::from(12310)));
+        assert_eq!(top_row(&r, 1), (p9, U256::from(12282)));
+        assert_eq!(top_row(&r, 2), (Address::ZERO, U256::ZERO));
+        // no duplicate player anywhere on the board
+        let players: Vec<Address> = (0..3u64).map(|i| top_row(&r, i).0).collect();
+        assert_eq!(players.iter().filter(|p| **p == p1).count(), 1);
+    }
+
+    #[test]
+    fn leaderboard_unique_players_improvement_from_outside_top3() {
+        let vm = vm();
+        let mut r = setup(&vm);
+        let (p1, p2, p3, p4) = (
+            Address::from([0x1; 20]),
+            Address::from([0x2; 20]),
+            Address::from([0x3; 20]),
+            Address::from([0x4; 20]),
+        );
+        submit_as(&mut r, &vm, 0x1, &L_12310, 12310);
+        submit_as(&mut r, &vm, 0x2, &L_12301A, 12301);
+        submit_as(&mut r, &vm, 0x3, &L_12293, 12293);
+        // p4's first run misses the board entirely
+        submit_as(&mut r, &vm, 0x4, &L_12282, 12282);
+        assert_eq!(top_row(&r, 2).0, p3);
+        // p4 improves and enters — displacing p3, not duplicating
+        submit_as(&mut r, &vm, 0x4, &L_12301B, 12301);
+        assert_eq!(top_row(&r, 0), (p1, U256::from(12310)));
+        assert_eq!(top_row(&r, 1), (p2, U256::from(12301)));
+        // equal score to p2's ranks below it (earlier entry keeps the slot)
+        assert_eq!(top_row(&r, 2), (p4, U256::from(12301)));
+        let addrs: Vec<Address> = (0..3u64).map(|i| top_row(&r, i).0).collect();
+        let mut dedup = addrs.clone();
+        dedup.dedup();
+        assert_eq!(addrs, dedup, "leaderboard has duplicate players");
+    }
+
+    #[test]
+    fn leaderboard_tie_keeps_earlier_entry() {
+        let vm = vm();
+        let mut r = setup(&vm);
+        let p1 = Address::from([0x1; 20]);
+        let p2 = Address::from([0x2; 20]);
+        submit_as(&mut r, &vm, 0x1, &L_12301A, 12301);
+        submit_as(&mut r, &vm, 0x2, &L_12301B, 12301);
+        assert_eq!(top_row(&r, 0), (p1, U256::from(12301)));
+        assert_eq!(top_row(&r, 1), (p2, U256::from(12301)));
+        // a third equal score does not displace either
+        submit_as(&mut r, &vm, 0x3, &L_12301A, 12301);
+        assert_eq!(top_row(&r, 2), (Address::from([0x3; 20]), U256::from(12301)));
     }
 }

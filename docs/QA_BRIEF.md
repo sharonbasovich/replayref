@@ -82,3 +82,16 @@ New this round (repo-side, re-runnable):
 - fail-closed guards verified without transactions: `parity.mjs` refuses a
   non-412346 chain (tested against anvil 31337); `sepolia-evidence.mjs`
   refuses the fixture key and any non-421614 chain before any signature
+
+## Round 3 — leaderboard dedup (post-review P1)
+
+Independent review found `insert_top` never removed a player's prior entry:
+improving your own best let one address occupy multiple top-3 slots and
+evict other players. Fixed: the player's existing entry is evicted and the
+board compacted before the new score is inserted. Regression tests cover
+the exact repro (p9 lands, p1 improves 12293→12301→12310 → p1 once + p9
+survives), a full 3-player board plus an improvement entering from outside
+top-3, duplicate-address absence, zero-score submits writing nothing, and
+tie ordering (strict `>` keeps the earlier entry). 7/7 pass via
+`cargo test -p referee-stylus`; local-chain parity/tamper/gas re-run on the
+fixed contract — 0 mismatches.

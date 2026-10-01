@@ -51,7 +51,7 @@ slow (|vx| ≤ 0.8 px/t, fall ≤ 1.2 px/t), upright (|rot| ≤ 12°).
 | `submit` gas — landed run, beaten by prior best (real tx, no write) | **94,160** @ 982 ticks, score 12294 | `evidence/gas.json` |
 | `submit` gas — score-0 crashed runs (real txs, replay only, no write) | **80,668 / 92,229 / 95,189** @ 300/904/1045 ticks | `evidence/gas.json` |
 | `verify` gas estimate (`eth_call`) | **76,039–90,733** crashed, **89,668** landed | `evidence/gas.json` |
-| referee contract unit tests (TestVM) | **4 / 4 pass** | `cargo test -p referee-stylus` |
+| referee contract unit tests (TestVM) | **7 / 7 pass** | `cargo test -p referee-stylus` |
 
 ### Corpus honesty
 
@@ -139,7 +139,9 @@ otherwise; >450 bytes → `TooLong`.
   `challengeSeed(id)` before using it (see `scripts/parity.mjs`).
 - **No prize/escrow contract** in this build (cut for deadline); `createChallenge`'s
   `season` parameter is an inert placeholder.
-- The Stylus referee is a naive top-3 store, not a production leaderboard.
+- The Stylus referee is a naive top-3 store, not a production leaderboard. A
+  player occupies at most one slot: improving your own best evicts your prior
+  entry before the new score is inserted (`insert_top` dedup; tested).
 
 ## AI disclosure
 

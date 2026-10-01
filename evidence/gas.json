@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T09:14:12.375Z",
+  "generated_at": "2026-10-01T09:58:40.398Z",
   "chain": "nitro-devnode local (chain id 412346)",
   "referee": "0x525c2aba45f66987217323e8a05ea400c65d06dc",
   "rows": [
@@ -9,8 +9,8 @@
       "status": "landed",
       "score": "12310",
       "wrote_run_accepted": true,
-      "tx": "0x3a567d174484889613f0a3f2f9443365208a278b0abcd15fd26b39e39ade8084",
-      "gas_used": "175577",
+      "tx": "0xd30e7bbb24ccf4877af3cda7f8ed1519d1c7ead903eb93bba5703b5d30eecf2f",
+      "gas_used": "175565",
       "receipt_status": "success"
     },
     {
@@ -19,8 +19,8 @@
       "status": "landed",
       "score": "12294",
       "wrote_run_accepted": false,
-      "tx": "0x9c3265a79ca1af4dd9e4c1f2cf92d5df0a35c22c789d20b8cd953c3b5dc947fe",
-      "gas_used": "94160",
+      "tx": "0xc19f107d89174c1c01e52093fc21c415b523974a73af97a6cb8c3cbd05813fdd",
+      "gas_used": "94148",
       "receipt_status": "success"
     },
     {
@@ -29,8 +29,8 @@
       "status": "crashed",
       "score": "0",
       "wrote_run_accepted": false,
-      "tx": "0x070f67ea4e2f88d583ef11a9e2dbc3dad33a230d8c6c823946e85278598ea0bc",
-      "gas_used": "80668",
+      "tx": "0xc9de54af1af78dd908fb437439dceafb651ebb22701c7a1daec096981cb58b2a",
+      "gas_used": "80656",
       "receipt_status": "success"
     },
     {
@@ -39,8 +39,8 @@
       "status": "crashed",
       "score": "0",
       "wrote_run_accepted": false,
-      "tx": "0x10727192bbabae2df5ef062536a4d2996b116268d0ad3697c607caf41451cbc9",
-      "gas_used": "92229",
+      "tx": "0xde4be20ee3a01e84ffa4ff62962092b00401e6d228b3d753833ce0e6793a01d1",
+      "gas_used": "92217",
       "receipt_status": "success"
     },
     {
@@ -49,33 +49,33 @@
       "status": "crashed",
       "score": "0",
       "wrote_run_accepted": false,
-      "tx": "0x53f0ae50925d9f160b14a03195d25e192db6da183d907bc3eac587112d62fb82",
-      "gas_used": "95189",
+      "tx": "0x046a0496d7ed27c516f12f9d8f593ae30c2c8b3b291563e0d2d7d4d9599a5cb3",
+      "gas_used": "95177",
       "receipt_status": "success"
     },
     {
       "kind": "verify_eth_call",
       "ticks": 300,
       "status": "crashed",
-      "gas_estimated": "76039"
+      "gas_estimated": "76027"
     },
     {
       "kind": "verify_eth_call",
       "ticks": 904,
       "status": "crashed",
-      "gas_estimated": "87738"
+      "gas_estimated": "87726"
     },
     {
       "kind": "verify_eth_call",
       "ticks": 1045,
       "status": "crashed",
-      "gas_estimated": "90733"
+      "gas_estimated": "90721"
     },
     {
       "kind": "verify_eth_call",
       "ticks": 982,
       "status": "landed",
-      "gas_estimated": "89668"
+      "gas_estimated": "89656"
     }
   ],
   "note": "Local nitro devnode, real receipts. submit_landed rows carry a landed log; whether they write is recorded per-row as wrote_run_accepted (a submit only emits RunAccepted when it beats the player's prior best). submit_score0_replay_only rows replay a crashed run and never write. Public-chain figures need a funded deployer (human dependency)."

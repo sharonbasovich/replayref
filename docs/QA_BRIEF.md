@@ -95,3 +95,25 @@ top-3, duplicate-address absence, zero-score submits writing nothing, and
 tie ordering (strict `>` keeps the earlier entry). 7/7 pass via
 `cargo test -p referee-stylus`; local-chain parity/tamper/gas re-run on the
 fixed contract — 0 mismatches.
+
+## Round 4 — P2 polish (hosted RPC, scroll guard, host allowlist)
+
+Three P2s closed in `dabd4d1`/`37884ae`/`c3e7103`, verified by the builder's
+testing agent on a rebuilt dist plus a hosted-mode sim (static server on a
+non-localhost hostname, devnode down):
+
+- **Zero RPC on hosted** — `refreshBoard()` AND `chainVerify()` early-return
+  with honest no-chain text when `!chainUp`; 0 `/rpc` fetches at load and 0
+  per finished run. (The chainVerify gap was caught in QA and fixed.)
+- **Scroll guard** — ArrowUp/Left/Right/Down + Space `preventDefault` only
+  while a run is active and the event target isn't editable; 390×844
+  viewport: no scroll mid-flight, scroll restored post-run, keys don't
+  scroll during replay, `r` inside the claim-score input no longer restarts.
+- **parity.mjs host allowlist** — loopback hosts only
+  (`localhost`/`127.0.0.1`/`[::1]`) checked BEFORE the 412346 chain-id
+  check and before any file I/O. `scripts/guard_test.mjs` (mock JSON-RPC,
+  no signing) proves: non-loopback refuse, wrong-chain refuse, right-chain
+  passes guards, sepolia script refuses fixture key + non-421614 chain.
+- **CI** — `.github/workflows/ci.yml` runs core tests, TestVM contract
+  tests, wasm rebuild + boundary smoke, 1200-log differential, and the
+  guard tests on code pushes; TEST gate only, deploy stays in pages.yml.

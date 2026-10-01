@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReplayRef — replay-verified lander</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>ReplayRef</h1>
+      <p class="tagline">Every arcade leaderboard has a number-one score that's physically impossible.<br>
+      Here, the chain replays your whole input log before accepting a score. <b>Robots welcome. Liars aren't.</b></p>
+      <div class="env-banner">LOCAL SIMULATION — Arbitrum nitro devnode on this machine. Nothing here is a public chain.</div>
+    </header>
+
+    <main>
+      <section class="game-col">
+        <canvas id="cv" width="820" height="520"></canvas>
+        <div class="hud">
+          <div class="hud-row">
+            <span id="hud-status">READY</span>
+            <span id="hud-fuel">fuel —</span>
+            <span id="hud-ticks">t 0</span>
+            <span id="hud-vel">vx — vy —</span>
+          </div>
+          <div class="controls-hint">One input per tick — <b>↑</b> thrust, <b>←/→</b> rotate. Land on the gold pad, slow and upright.</div>
+          <div class="btn-row">
+            <button id="btn-reset">↺ Reset (R)</button>
+            <button id="btn-replay">▶ Watch verified replay</button>
+            <button id="btn-newseed">New seed</button>
+          </div>
+          <div class="touch-pad">
+            <button id="t-left">⟲</button>
+            <button id="t-up">↑</button>
+            <button id="t-right">⟳</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-col">
+        <div class="panel">
+          <h2>Referee</h2>
+          <div class="verdict" id="verdict">
+            <span class="v-local" id="v-local">local: —</span>
+            <span class="v-chain" id="v-chain">chain: —</span>
+          </div>
+          <div id="claim-row" class="claim-row hidden">
+            claimed score <input id="claim" type="number" />
+            <button id="btn-submit">Submit to chain</button>
+          </div>
+          <div id="log-info" class="mono small"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Cheat demo</h2>
+          <div class="btn-grid">
+            <button id="cheat-score" disabled>Claim +500</button>
+            <button id="cheat-byte" disabled>Flip an input byte</button>
+            <button id="cheat-seed" disabled>Wrong seed replay</button>
+          </div>
+          <div id="cheat-out" class="mono small">Finish a run first — then try to lie about it.</div>
+        </div>
+
+        <div class="panel">
+          <h2>Leaderboard <span class="lbl">local devnode</span></h2>
+          <div id="board" class="mono small">—</div>
+        </div>
+
+        <div class="panel honest">
+          <h2>What this proves (and doesn't)</h2>
+          <ul class="small">
+            <li>Chain <b>re-simulates</b> every input byte before accepting a score — same Rust code as your browser ran.</li>
+            <li>Consistency only: it does <b>not</b> prove a human played. Bots can score honestly.</li>
+            <li>All evidence is from a <b>local nitro devnode</b>, not a public chain. No funds moved anywhere real.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -21,6 +21,15 @@ let lastScore = 0;
 let demoLog: { seed: number; inputs: string; expected_score: number; ticks: number };
 let camX = 0;
 
+// IS_LOCAL: served from a dev/preview server on this machine, where the /rpc
+// proxy can reach a nitro devnode. Public hosts (GitHub Pages) have no chain.
+const IS_LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+let chainUp = false;
+const chainLabel = () => (chainUp ? "local devnode" : IS_LOCAL ? "no devnode" : "browser only");
+const chainDownText = () => IS_LOCAL
+  ? "chain: local devnode not running — start nitro-devnode, then this panel verifies for real"
+  : "chain: no Arbitrum deployment connected — local WASM verification only, UNVERIFIED";
+
 // ---- challenge resolution: find or lazily create a challenge for a seed ----
 const F64ABI = [{ type: "function", name: "challengeSeed", inputs: [{ type: "uint256" }], outputs: [{ type: "uint64" }], stateMutability: "view" }] as const;
 const NUMABI = [{ type: "function", name: "numChallenges", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" }] as const;
@@ -114,9 +123,10 @@ function startRun() {
   playing = true;
   lastBytes = null;
   $("verdict").querySelector("#v-local")!.textContent = "local: —";
-  $("v-chain").textContent = "chain: —";
-  $("v-chain").className = "v-chain";
+  $("v-chain").textContent = chainUp ? "chain: —" : chainDownText();
+  $("v-chain").className = "v-chain" + (chainUp ? "" : " warn");
   $("claim-row").classList.add("hidden");
+  $("log-info").textContent = "";
   setCheatEnabled(false);
   $("cheat-out").textContent = "";
   $("cheat-out").className = "mono small";
@@ -137,9 +147,13 @@ function startReplay() {
   playing = true;
   lastBytes = null;
   $("verdict").querySelector("#v-local")!.textContent = "local: —";
-  $("v-chain").textContent = "chain: —";
-  $("v-chain").className = "v-chain";
+  $("v-chain").textContent = chainUp ? "chain: —" : chainDownText();
+  $("v-chain").className = "v-chain" + (chainUp ? "" : " warn");
   $("claim-row").classList.add("hidden");
+  $("log-info").textContent = "";
+  setCheatEnabled(false);
+  $("cheat-out").textContent = "";
+  $("cheat-out").className = "mono small";
   acc = 0; lastT = performance.now();
   raf = requestAnimationFrame(loop);
 }
@@ -184,9 +198,12 @@ async function chainVerify(bytes: Uint8Array) {
     vc.textContent = r.ok
       ? `chain (local devnode): score ${r.score} ✓`
       : `chain (local devnode): rejected — ${r.errorName}${r.errorDetail ? " " + r.errorDetail : ""}`;
+    ($("btn-submit") as HTMLButtonElement).disabled = false;
   } catch {
+    chainUp = false;
     vc.className = "v-chain warn";
-    vc.textContent = "chain: unreachable — local score only, UNVERIFIED";
+    vc.textContent = chainDownText();
+    ($("btn-submit") as HTMLButtonElement).disabled = true;
   }
 }
 
@@ -226,7 +243,9 @@ the run only verifies under the seed it was played on.`
         : `REJECTED — ${r.errorName}${r.errorDetail ? " " + r.errorDetail : ""}`;
     }
   } catch {
-    out.textContent = "chain unreachable — restart the local devnode";
+    out.textContent = IS_LOCAL
+      ? "chain unreachable — restart the local devnode"
+      : "no Arbitrum deployment connected — the cheat rejection demo needs a local devnode";
     out.className = "mono small warn";
   }
 }
@@ -244,7 +263,8 @@ async function submitScore() {
     refreshBoard();
   } catch {
     out.className = "v-chain warn";
-    out.textContent = "chain: unreachable — local score only, UNVERIFIED";
+    out.textContent = chainDownText();
+    ($("btn-submit") as HTMLButtonElement).disabled = true;
   }
 }
 
@@ -255,7 +275,7 @@ async function refreshBoard() {
       ? rows.map((r, i) => `#${i + 1} ${r.player.slice(0, 8)}… ${r.score}`).join("<br>")
       : "empty — nobody has landed yet";
   } catch {
-    $("board").textContent = "chain unreachable";
+    $("board").textContent = IS_LOCAL ? "chain unreachable" : "no chain connected — local demo only";
   }
 }
 
@@ -321,7 +341,7 @@ function draw() {
   // challenge label
   ctx.fillStyle = "#8b93b8";
   ctx.font = "28px monospace";
-  ctx.fillText(`seed ${seed} (local devnode)`, camX + 24, 48);
+  ctx.fillText(`seed ${seed} (${chainLabel()})`, camX + 24, 48);
 
   ctx.restore();
 
@@ -346,10 +366,21 @@ async function main() {
   $("cheat-score").onclick = () => cheat("score");
   $("cheat-byte").onclick = () => cheat("byte");
   $("cheat-seed").onclick = () => cheat("seed");
-  const alive = await chain.chainAlive();
-  if (!alive) {
-    $("v-chain").textContent = "chain: local devnode not running — start nitro-devnode, then this panel verifies for real";
+  chainUp = await chain.chainAlive();
+  const banner = $("env-banner");
+  if (chainUp) {
+    banner.textContent = "LOCAL SIMULATION — Arbitrum nitro devnode on this machine. Nothing here is a public chain.";
+  } else if (IS_LOCAL) {
+    banner.textContent = "LOCAL SIMULATION — nitro devnode not running; start it for chain verification.";
+    $("v-chain").textContent = chainDownText();
     $("v-chain").className = "v-chain warn";
+    ($("btn-submit") as HTMLButtonElement).disabled = true;
+  } else {
+    banner.textContent = "PUBLIC DEMO — game + verified replay run in your browser with local WASM verification. No Arbitrum deployment is connected.";
+    $("v-chain").textContent = chainDownText();
+    $("v-chain").className = "v-chain warn";
+    ($("btn-submit") as HTMLButtonElement).disabled = true;
+    ($("board-lbl") as HTMLElement).textContent = "no chain";
   }
   core.reset(seed);
   draw();

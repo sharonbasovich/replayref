@@ -12,7 +12,7 @@
       <h1>ReplayRef</h1>
       <p class="tagline">Every arcade leaderboard has a number-one score that's physically impossible.<br>
       Here, the chain replays your whole input log before accepting a score. <b>Robots welcome. Liars aren't.</b></p>
-      <div class="env-banner">LOCAL SIMULATION — Arbitrum nitro devnode on this machine. Nothing here is a public chain.</div>
+      <div class="env-banner" id="env-banner">Browser demo — local WASM verification. The referee panel reports honestly when no chain is reachable.</div>
     </header>
 
     <main>
@@ -64,7 +64,7 @@
         </div>
 
         <div class="panel">
-          <h2>Leaderboard <span class="lbl">local devnode</span></h2>
+          <h2>Leaderboard <span class="lbl" id="board-lbl">local devnode</span></h2>
           <div id="board" class="mono small">—</div>
         </div>
 
@@ -82,5 +82,3 @@
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
-
-<!-- demo build -->

@@ -84,9 +84,13 @@ addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight") keys.right = true;
   if ((e.key === "r" || e.key === "R") && !isEditable(e.target)) startRun();
   // game keys scroll small viewports — swallow them while a run is live,
-  // but never inside form fields or editable content (accessibility)
+  // but never inside form fields or editable content (accessibility).
+  // Space on a focused button/link is exempt: the element consumes it for
+  // activation (click), which is normal semantic behavior and doesn't scroll.
+  const interactive =
+    e.target instanceof HTMLElement && !!e.target.closest("button, a[href], summary, [role='button'], [role='link']");
   if (
-    playing && !isEditable(e.target) &&
+    playing && !isEditable(e.target) && !(e.key === " " && interactive) &&
     ["ArrowUp", "ArrowLeft", "ArrowRight", "ArrowDown", " "].includes(e.key)
   ) {
     e.preventDefault();
@@ -245,6 +249,14 @@ function setCheatEnabled(on: boolean) {
 async function cheat(kind: "score" | "byte" | "seed") {
   const out = $("cheat-out");
   if (!lastBytes) return;
+  if (!chainUp) {
+    // no reachable chain — no probe; explain why the cheat can't run
+    out.className = "mono small";
+    out.textContent = IS_LOCAL
+      ? "no devnode — cheats need the local chain re-simulation; start it and replay again"
+      : "no chain connected — cheats need the referee re-simulation; this hosted demo is local-WASM only";
+    return;
+  }
   out.className = "mono small";
   try {
     if (kind === "score") {

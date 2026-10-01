@@ -47,10 +47,10 @@ slow (|vx| ≤ 0.8 px/t, fall ≤ 1.2 px/t), upright (|rot| ≤ 12°).
 | Stylus `verify` == native, 1200 logs | **0 mismatches** | `evidence/parity.json` |
 | tampered/forged corpus, on-chain vs native | **0 mismatches** | `evidence/tamper.json` |
 | forged claims > 0 accepted | **0 / 545** | `evidence/tamper.json` |
-| `submit` gas — landed run, first write (real tx, local devnode) | **175,577** @ 981 ticks, score 12310 | `evidence/gas.json` |
-| `submit` gas — landed run, beaten by prior best (real tx, no write) | **94,160** @ 982 ticks, score 12294 | `evidence/gas.json` |
-| `submit` gas — score-0 crashed runs (real txs, replay only, no write) | **80,668 / 92,229 / 95,189** @ 300/904/1045 ticks | `evidence/gas.json` |
-| `verify` gas estimate (`eth_call`) | **76,039–90,733** crashed, **89,668** landed | `evidence/gas.json` |
+| `submit` gas — landed run, first write (real tx, local devnode) | **175,565** @ 981 ticks, score 12310 | `evidence/gas.json` |
+| `submit` gas — landed run, beaten by prior best (real tx, no write) | **94,148** @ 982 ticks, score 12294 | `evidence/gas.json` |
+| `submit` gas — score-0 crashed runs (real txs, replay only, no write) | **80,656 / 92,217 / 95,177** @ 300/904/1045 ticks | `evidence/gas.json` |
+| `verify` gas estimate (`eth_call`) | **76,027–90,721** crashed, **89,656** landed | `evidence/gas.json` |
 | referee contract unit tests (TestVM) | **7 / 7 pass** | `cargo test -p referee-stylus` |
 
 ### Corpus honesty

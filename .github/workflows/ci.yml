@@ -13,7 +13,8 @@ on:
       - "contracts/**"
       - "scripts/**"
       - "web/src/**"
-      - "web/public/ref_core.wasm"
+      - "web/index.html"
+      - "web/public/**"
       - "tests/**"
       - ".github/workflows/ci.yml"
   pull_request:
@@ -61,3 +62,6 @@ jobs:
         run: |
           npm ci --prefix scripts
           node scripts/guard_test.mjs
+
+      - name: Web source guards (static, no browser)
+        run: node scripts/web_guards.mjs

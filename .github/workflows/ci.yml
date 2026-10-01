@@ -40,7 +40,8 @@ jobs:
         run: cargo test --release -p ref-core
 
       - name: referee-stylus TestVM tests (7)
-        run: cargo test -p referee-stylus
+        working-directory: contracts/referee-stylus
+        run: cargo test
 
       - name: Build native sim + wasm-abi
         run: |

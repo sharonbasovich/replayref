@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T07:00:29.678Z",
+  "generated_at": "2026-10-01T09:14:11.601Z",
   "chain": "nitro-devnode local (chain id 412346)",
   "referee": "0x525c2aba45f66987217323e8a05ea400c65d06dc",
   "n": 2398,
@@ -15,16 +15,16 @@
       "accepted_unexpectedly": 297,
       "accepted_gt0": 0
     },
-    "truncate": {
-      "n": 399,
-      "rejected": 58,
-      "accepted_unexpectedly": 341,
-      "accepted_gt0": 0
-    },
     "nonzero_pad": {
       "n": 400,
       "rejected": 127,
       "accepted_unexpectedly": 273,
+      "accepted_gt0": 0
+    },
+    "wrong_seed": {
+      "n": 400,
+      "rejected": 98,
+      "accepted_unexpectedly": 302,
       "accepted_gt0": 0
     },
     "overlong": {
@@ -33,16 +33,16 @@
       "accepted_unexpectedly": 0,
       "accepted_gt0": 0
     },
+    "truncate": {
+      "n": 399,
+      "rejected": 58,
+      "accepted_unexpectedly": 341,
+      "accepted_gt0": 0
+    },
     "claim_plus1": {
       "n": 400,
       "rejected": 400,
       "accepted_unexpectedly": 0,
-      "accepted_gt0": 0
-    },
-    "wrong_seed": {
-      "n": 400,
-      "rejected": 98,
-      "accepted_unexpectedly": 302,
       "accepted_gt0": 0
     }
   },
@@ -54,25 +54,31 @@
       "score": "0"
     },
     {
-      "id": "t00001",
-      "m": "truncate",
-      "claim": "0",
-      "score": "0"
-    },
-    {
       "id": "t00005",
       "m": "nonzero_pad",
       "claim": "0",
       "score": "0"
     },
     {
-      "id": "t00012",
+      "id": "t00010",
+      "m": "wrong_seed",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00001",
+      "m": "truncate",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00006",
       "m": "flip_bit",
       "claim": "0",
       "score": "0"
     },
     {
-      "id": "t00010",
+      "id": "t00028",
       "m": "wrong_seed",
       "claim": "0",
       "score": "0"
@@ -84,37 +90,31 @@
       "score": "0"
     },
     {
-      "id": "t00004",
-      "m": "wrong_seed",
-      "claim": "0",
-      "score": "0"
-    },
-    {
-      "id": "t00006",
-      "m": "flip_bit",
-      "claim": "0",
-      "score": "0"
-    },
-    {
       "id": "t00016",
       "m": "wrong_seed",
       "claim": "0",
       "score": "0"
     },
     {
-      "id": "t00028",
+      "id": "t00004",
       "m": "wrong_seed",
       "claim": "0",
       "score": "0"
     },
     {
-      "id": "t00025",
-      "m": "truncate",
+      "id": "t00011",
+      "m": "nonzero_pad",
       "claim": "0",
       "score": "0"
     },
     {
-      "id": "t00011",
+      "id": "t00012",
+      "m": "flip_bit",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00029",
       "m": "nonzero_pad",
       "claim": "0",
       "score": "0"
@@ -126,14 +126,8 @@
       "score": "0"
     },
     {
-      "id": "t00017",
-      "m": "nonzero_pad",
-      "claim": "0",
-      "score": "0"
-    },
-    {
-      "id": "t00029",
-      "m": "nonzero_pad",
+      "id": "t00031",
+      "m": "truncate",
       "claim": "0",
       "score": "0"
     },
@@ -144,26 +138,32 @@
       "score": "0"
     },
     {
-      "id": "t00031",
+      "id": "t00017",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00025",
       "m": "truncate",
       "claim": "0",
       "score": "0"
     },
     {
-      "id": "t00043",
-      "m": "truncate",
-      "claim": "0",
-      "score": "0"
-    },
-    {
-      "id": "t00055",
-      "m": "truncate",
-      "claim": "0",
-      "score": "0"
-    },
-    {
-      "id": "t00036",
+      "id": "t00054",
       "m": "flip_bit",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00041",
+      "m": "nonzero_pad",
+      "claim": "0",
+      "score": "0"
+    },
+    {
+      "id": "t00047",
+      "m": "nonzero_pad",
       "claim": "0",
       "score": "0"
     }

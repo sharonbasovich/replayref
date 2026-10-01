@@ -43,17 +43,41 @@ slow (|vx| ≤ 0.8 px/t, fall ≤ 1.2 px/t), upright (|rot| ≤ 12°).
 | Gate | Result | Evidence |
 |---|---|---|
 | native == browser WASM, 1200 seeded logs | **0 mismatches** | `evidence/differential.json` |
+| native == browser WASM, 2398 tampered logs (incl. >450 B boundary) | **0 mismatches** | `evidence/differential_tamper.json` |
 | Stylus `verify` == native, 1200 logs | **0 mismatches** | `evidence/parity.json` |
 | tampered/forged corpus, on-chain vs native | **0 mismatches** | `evidence/tamper.json` |
 | forged claims > 0 accepted | **0 / 545** | `evidence/tamper.json` |
-| `submit` gas (real txs, local devnode) | **71,956 / 81,068 / 83,405** @ 300/904/1045 ticks | `evidence/gas.json` |
-| `verify` gas estimate (`eth_call`) | **67,724–79,309** | `evidence/gas.json` |
+| `submit` gas — landed run, first write (real tx, local devnode) | **175,577** @ 981 ticks, score 12310 | `evidence/gas.json` |
+| `submit` gas — landed run, beaten by prior best (real tx, no write) | **94,160** @ 982 ticks, score 12294 | `evidence/gas.json` |
+| `submit` gas — score-0 crashed runs (real txs, replay only, no write) | **80,668 / 92,229 / 95,189** @ 300/904/1045 ticks | `evidence/gas.json` |
+| `verify` gas estimate (`eth_call`) | **76,039–90,733** crashed, **89,668** landed | `evidence/gas.json` |
+| referee contract unit tests (TestVM) | **4 / 4 pass** | `cargo test -p referee-stylus` |
+
+### Corpus honesty
+
+"Valid" in `valid.jsonl` means *simulation-executable*, not *landed*. Of the
+1200 generative logs: **84 landed, 911 crashed (score 0), 205 rejected** as
+malformed (`NonZeroTrailer`). At the demo challenge seed (7777777): **5
+landed, 864 crashed, 331 rejected**. Each case's outcome is in
+`tests/out/*.jsonl` — landed, crashed, and rejected are different things and
+the tables above never conflate them.
+
+The same is true of gas rows: `submit_landed` writes to the leaderboard only
+when it beats the player's prior best (`wrote_run_accepted` in `gas.json`);
+`submit_score0_replay_only` rows replay a crashed run and never write
+anything — they cost gas but produce no leaderboard entry.
 
 Tamper mutations tested: bit flips, truncation, overlong logs (>450 B), claim+1
-forgeries, wrong-seed replays, non-zero padding. Note: a score-**0** claim is
-trivially true of any crashing log — forgery success is only meaningful on
-claims > 0, where **every** forgery was rejected. Malformed logs revert with
-`InvalidInputs` (`TooLong` / `NonZeroTrailer`).
+forgeries, wrong-seed replays, non-zero padding. Two honest notes:
+
+- A score-**0** claim is trivially true of any crashing log — forgery success
+  is only meaningful on claims > 0, where **every** forgery was rejected.
+- Mutating an input log does **not** always invalidate it: some mutations
+  still produce a *different but legitimate* run with the same or another
+  valid score (e.g. flipping a bit after the crash point). Those are real
+  alternate logs, not forgeries — the guardrail is that *the claimed score*
+  must match the recomputed one, not that every edited byte must reject.
+  Malformed logs revert with `InvalidInputs` (`TooLong` / `NonZeroTrailer`).
 
 ## Reproduce
 
@@ -63,13 +87,24 @@ cargo test --release -p ref-core            # 13 tests incl. boundary/overflow/m
 cargo build --release                       # replaysim + autopilot binaries
 python3 scripts/gen_corpus.py               # regenerates the frozen corpora
 cargo build --release --target wasm32-unknown-unknown -p wasm-abi
+cp target/wasm32-unknown-unknown/release/wasm_abi.wasm web/public/ref_core.wasm
+node scripts/wasm_smoke.mjs                 # ABI boundary regressions (pad fp, 451B, valid replay)
 node scripts/differential.mjs               # -> evidence/differential.json
+node scripts/differential.mjs tests/corpus/tamper.jsonl evidence/differential_tamper.json
 
 # 2. Stylus referee on a local nitro devnode (fixture keys only, local chain)
+cargo test -p referee-stylus                # 4 contract unit tests via stylus-test TestVM
 cd ~/nitro-devnode && ./run-dev-node.sh     # OffchainLabs nitro-devnode, chain 412346
+cargo build --release --target wasm32-unknown-unknown -p referee-stylus
 cd contracts/referee-stylus && cargo stylus deploy \
+  --wasm-file ../../target/wasm32-unknown-unknown/release/referee_stylus.wasm \
   --endpoint http://127.0.0.1:8547 --private-key <devnode-fixture-key> --no-verify
+# (deploying the prebuilt wasm works around cargo-stylus failing on the
+#  workspace path-dependency `ref-core`; deploys deterministically to
+#  0x525c2aba45f66987217323e8a05ea400c65d06dc on a fresh node)
 node scripts/parity.mjs                     # -> evidence/parity|tamper|gas.json
+# parity.mjs refuses any chain that isn't 412346 — the fixture key is
+# local-only by guard, not by convention.
 
 # 3. web demo
 cd web && npm install && npm run dev        # proxies /rpc -> 127.0.0.1:8547
@@ -95,8 +130,13 @@ otherwise; >450 bytes → `TooLong`.
   tokens, no deployed leaderboard.
 - **Gas numbers are local-devnode measurements**, not Arbitrum One, and only at
   the tick counts actually executed (≤ ~1045); logs that never land are the
-  only way to reach 1800 ticks.
+  only way to reach 1800 ticks. Landed submits also cost more when they
+  actually write — a submit that doesn't beat the player's prior best emits no
+  `RunAccepted` and writes nothing.
 - **A score-0 claim cannot be forged** — every crash honestly scores 0.
+- **`createChallenge` is permissionless.** Challenge ids are never assumed:
+  callers take the id from the `ChallengeCreated` event and re-read
+  `challengeSeed(id)` before using it (see `scripts/parity.mjs`).
 - **No prize/escrow contract** in this build (cut for deadline); `createChallenge`'s
   `season` parameter is an inert placeholder.
 - The Stylus referee is a naive top-3 store, not a production leaderboard.

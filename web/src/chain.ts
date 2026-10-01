@@ -44,6 +44,22 @@ export const wallet = createWalletClient({
 
 export class ChainDown extends Error {}
 
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+const NITRO_LOCAL_ID = 412346;
+
+// The bundled fixture key may ONLY sign against the local nitro devnode.
+// Fail closed: refuse on a non-local host or a non-devnode chain id BEFORE
+// any transaction is constructed — never sweep owner funds with a public key.
+export async function assertLocalChain(): Promise<void> {
+  if (!LOCAL_HOSTS.includes(location.hostname)) {
+    throw new ChainDown("fixture key may only sign from localhost — no transaction sent");
+  }
+  const id = await pub.getChainId();
+  if (id !== NITRO_LOCAL_ID) {
+    throw new ChainDown(`fixture key refused: chain id ${id} is not the nitro devnode (${NITRO_LOCAL_ID}) — no transaction sent`);
+  }
+}
+
 export async function chainAlive(): Promise<boolean> {
   try { await pub.getBlockNumber(); return true; } catch { return false; }
 }
@@ -56,6 +72,15 @@ export interface VerifyResult {
 }
 
 export { ABI };
+
+// Guarded wallet write for challenge creation — same fail-closed rule.
+export async function createChallengeTx(seed: bigint, start: bigint, end: bigint, season: Address): Promise<`0x${string}`> {
+  await assertLocalChain();
+  return wallet.writeContract({
+    address: REFEREE, abi: ABI, functionName: "createChallenge",
+    args: [BigInt.asUintN(64, seed), start, end, season],
+  });
+}
 
 // probe the node directly — the vite /rpc proxy turns a dead devnode into an
 // HTTP 500 that does not look like "fetch failed" or ECONNREFUSED
@@ -110,6 +135,7 @@ export interface SubmitResult {
 }
 
 export async function submit(id: bigint, inputs: Hex, claimed: bigint): Promise<SubmitResult> {
+  await assertLocalChain();
   try {
     const tx = await wallet.writeContract({
       address: REFEREE, abi: ABI, functionName: "submit", args: [id, inputs, claimed],

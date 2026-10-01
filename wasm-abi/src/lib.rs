@@ -38,7 +38,10 @@ pub extern "C" fn view_ptr() -> *const i32 {
 #[no_mangle]
 pub extern "C" fn simulate_log(seed_lo: u32, seed_hi: u32, len: u32) -> u32 {
     let seed = (seed_lo as u64) | ((seed_hi as u64) << 32);
-    let n = len.min(MAX_INPUT_BYTES as u32) as usize;
+    if len > MAX_INPUT_BYTES as u32 {
+        return 1; // match ref-core/contract: reject, never truncate
+    }
+    let n = len as usize;
     let buf = unsafe { &*core::ptr::slice_from_raw_parts(IN_BUF.as_ptr(), n) };
     let out = unsafe { &mut *core::ptr::addr_of_mut!(OUT) };
     match simulate(seed, buf) {
@@ -118,7 +121,8 @@ pub extern "C" fn pad_segment(seed_lo: u32, seed_hi: u32) -> u32 {
     pad
 }
 
-/// Terrain control height (integer px) for control point i (0..=24).
+/// Terrain control height (Q16.16 fixed-point) for control point i (0..=24).
+/// Callers must shift right 16 to get integer px.
 #[no_mangle]
 pub extern "C" fn terrain_h_at(seed_lo: u32, seed_hi: u32, i: u32) -> i64 {
     let seed = (seed_lo as u64) | ((seed_hi as u64) << 32);

@@ -34,7 +34,11 @@ button {
 button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 .touch-pad { display: none; gap: 14px; justify-content: center; margin-top: 10px; }
-.touch-pad button { width: 72px; height: 56px; font-size: 22px; }
+.touch-pad button {
+  width: 72px; height: 56px; font-size: 22px;
+  touch-action: none; user-select: none;
+  -webkit-user-select: none; -webkit-touch-callout: none;
+}
 .panel {
   background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
   padding: 14px 16px; margin-bottom: 14px;
@@ -65,5 +69,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (max-width: 980px) {
   main { grid-template-columns: 1fr; }
   .touch-pad { display: flex; }
-  .controls-hint { display: none; }
+  .controls-hint { font-size: 12px; }
+}
+@media (max-width: 480px) {
+  #app { padding: 10px; }
+  .panel { padding: 10px 12px; }
+  .tagline { font-size: 13px; }
 }

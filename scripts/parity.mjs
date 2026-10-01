@@ -13,6 +13,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createPublicClient, createWalletClient, http, parseAbi, defineChain,
+  keccak256, toHex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -73,19 +74,34 @@ async function ethVerify(id, inputsHex) {
 }
 
 async function main() {
-  const block0 = await pub.getBlockNumber();
-  // 1. ensure challenge 0 exists with our seed
-  let n = await pub.readContract({ address: REFEREE, abi: ABI, functionName: "numChallenges" });
-  if (n === 0n) {
-    const hash = await wal.writeContract({
-      address: REFEREE, abi: ABI, functionName: "createChallenge",
-      args: [CHALLENGE_SEED, 1n, 4102444800n, "0x0000000000000000000000000000000000000000"],
-    });
-    await pub.waitForTransactionReceipt({ hash });
-    console.log("created challenge 0 seed", CHALLENGE_SEED.toString());
+  // FAIL CLOSED: the fixture dev key must never sign outside the local devnode.
+  const cid = await pub.getChainId();
+  if (cid !== 412346) {
+    console.error(`refusing to run: expected nitro devnode chain id 412346, got ${cid}. The fixture key is local-only — no transactions sent.`);
+    process.exit(1);
   }
-  const onchainSeed = await pub.readContract({ address: REFEREE, abi: ABI, functionName: "challengeSeed", args: [0n] });
-  if (onchainSeed !== CHALLENGE_SEED) throw new Error(`challenge seed ${onchainSeed} != ${CHALLENGE_SEED}`);
+  const block0 = await pub.getBlockNumber();
+  // 1. create a fresh challenge and pin the REAL id from the ChallengeCreated
+  // event — never assume an index (creation is permissionless; another caller
+  // could front-run any index we guessed). The seed is then re-read onchain to
+  // prove the id we use actually carries our seed.
+  const created = await wal.writeContract({
+    address: REFEREE, abi: ABI, functionName: "createChallenge",
+    args: [CHALLENGE_SEED, 1n, 4102444800n, "0x0000000000000000000000000000000000000000"],
+  });
+  const rcpt = await pub.waitForTransactionReceipt({ hash: created });
+  const topic0 = keccak256(toHex("ChallengeCreated(uint256,uint64,uint64,uint64,address)"));
+  const acceptedTopic = keccak256(toHex("RunAccepted(uint256,address,uint32,bytes32)"));
+  const ev = rcpt.logs.find((l) => l.topics[0] === topic0);
+  if (!ev) throw new Error("createChallenge mined but emitted no ChallengeCreated event");
+  const CH_ID = BigInt(ev.topics[1]);
+  const seedOnChain = await pub.readContract({
+    address: REFEREE, abi: ABI, functionName: "challengeSeed", args: [CH_ID],
+  });
+  if (seedOnChain !== CHALLENGE_SEED) {
+    throw new Error(`challenge ${CH_ID} carries seed ${seedOnChain}, expected ${CHALLENGE_SEED} — refusing`);
+  }
+  console.log("created+verified challenge", CH_ID.toString(), "seed", seedOnChain.toString());
 
   // 2. parity: onchain verify == native sim under the challenge seed
   const t0 = Date.now();
@@ -94,7 +110,7 @@ async function main() {
   const CHUNK = 32;
   for (let i = 0; i < valid.length; i += CHUNK) {
     await Promise.all(valid.slice(i, i + CHUNK).map(async (e) => {
-      const c = await ethVerify(0n, e.inputs);
+      const c = await ethVerify(CH_ID, e.inputs);
       const nat = nativeCh.get(e.id);
       const natScore = nat?.score !== undefined ? BigInt(nat.score) : null;
       scoreById.set(e.id, c.score ?? null);
@@ -107,7 +123,7 @@ async function main() {
   const parity = {
     generated_at: new Date().toISOString(),
     chain: "nitro-devnode local (chain id 412346)",
-    referee: REFEREE, challenge_id: 0, challenge_seed: CHALLENGE_SEED.toString(),
+    referee: REFEREE, challenge_id: CH_ID.toString(), challenge_seed: CHALLENGE_SEED.toString(),
     block: block0.toString(), n: valid.length,
     mismatches: mismatches.length, samples: mismatches.slice(0, 20),
     note: "LOCAL devnode evidence only — not a public-chain deployment.",
@@ -124,7 +140,7 @@ async function main() {
     await Promise.all(tamper.slice(i, i + CHUNK).map(async (e) => {
       const base = nativeBase.get(e.base_id);
       const claim = BigInt(base?.score ?? 0) + BigInt(e.claim_offset ?? 0);
-      const c = await ethVerify(0n, e.inputs);
+      const c = await ethVerify(CH_ID, e.inputs);
       const pass = c.score !== undefined && c.score === claim;
       // onchain-vs-native parity under the challenge seed
       const nat = nativeTampCh.get(e.id);
@@ -157,44 +173,60 @@ async function main() {
     note: "claim = native base score + claim_offset. verify() returning ==claim counts as forgery success. A 0-score claim is true of any crashing log, so forgery success is only meaningful on claims > 0.",
   };
 
-  // 4. gas: real submit txs at varying tick counts + a few verify estimates
+  // 4. gas: real submit txs. LANDED runs (score > 0) write best/top entries;
+  // crashed score-0 runs only replay and write nothing — rows are labelled so
+  // the two are never conflated. The demo log is included as the canonical
+  // landed submission.
   const want = [300, 900, 1800];
-  const byTicks = want.map((w) => {
+  const pick = (w, landed) => {
     let best = null;
     for (const e of valid) {
       const nat = nativeCh.get(e.id);
-      if (nat?.status === "timeout" ? w === 1800 : true) {
-        const d = Math.abs((nat?.ticks ?? 0) - w);
-        if (!best || d < best.d) best = { e, d, ticks: nat?.ticks };
-      }
+      if (landed && nat?.status !== "landed") continue;
+      if (!landed && nat?.status === "landed") continue;
+      const d = Math.abs((nat?.ticks ?? 0) - w);
+      if (!best || d < best.d) best = { e, d, ticks: nat?.ticks, status: nat?.status };
     }
     return best;
-  });
+  };
+  const demoLog = JSON.parse(readFileSync(resolve(root, "web/public/demo_log.json"), "utf8"));
+  const demoEntry = { e: { id: "demo", inputs: demoLog.inputs }, ticks: demoLog.ticks, status: "landed" };
+  const submitCases = [
+    { b: pick(900, true) ?? demoEntry, landed: true },
+    { b: demoEntry, landed: true },
+    ...want.map((w) => ({ b: pick(w, false), landed: false })),
+  ];
   const gasRows = [];
-  for (const b of byTicks) {
+  for (const { b, landed } of submitCases) {
     if (!b) continue;
-    const score = scoreById.get(b.e.id);
+    const score = b.e.id === "demo" ? BigInt(demoLog.expected_score) : scoreById.get(b.e.id);
     if (score === null || score === undefined) continue;
     try {
       const hash = await wal.writeContract({
         address: REFEREE, abi: ABI, functionName: "submit",
-        args: [0n, `0x${b.e.inputs}`, score],
+        args: [CH_ID, `0x${b.e.inputs}`, score],
       });
       const rc = await pub.waitForTransactionReceipt({ hash });
-      gasRows.push({ target_ticks: null, ticks: b.ticks, tx: hash, gas_used: rc.gasUsed.toString(), status: rc.status });
+      const wrote = rc.logs.some((l) => l.topics[0] === acceptedTopic);
+      gasRows.push({
+        kind: landed ? "submit_landed" : "submit_score0_replay_only",
+        ticks: b.ticks, status: b.status, score: score.toString(),
+        wrote_run_accepted: wrote,
+        tx: hash, gas_used: rc.gasUsed.toString(), receipt_status: rc.status,
+      });
     } catch (e) {
-      gasRows.push({ ticks: b.ticks, error: errName(e) });
+      gasRows.push({ kind: landed ? "submit_landed" : "submit_score0_replay_only", ticks: b.ticks, error: errName(e) });
     }
   }
   // verify() estimate at same ticks
-  for (const b of byTicks) {
+  for (const b of [pick(300, false), pick(900, false), pick(1800, false), demoEntry]) {
     if (!b) continue;
     try {
       const g = await pub.estimateContractGas({
         address: REFEREE, abi: ABI, functionName: "verify",
-        args: [0n, `0x${b.e.inputs}`], account: account.address,
+        args: [CH_ID, `0x${b.e.inputs}`], account: account.address,
       });
-      gasRows.push({ kind: "verify_eth_call", ticks: b.ticks, gas_estimated: g.toString() });
+      gasRows.push({ kind: "verify_eth_call", ticks: b.ticks, status: b.status, gas_estimated: g.toString() });
     } catch (e) {
       gasRows.push({ kind: "verify_eth_call", ticks: b.ticks, error: errName(e) });
     }
@@ -202,7 +234,7 @@ async function main() {
   const gas = {
     generated_at: new Date().toISOString(), chain: parity.chain, referee: REFEREE,
     rows: gasRows,
-    note: "Gas on the local nitro devnode, real receipts. Sepolia figures need a funded deployer (human dependency).",
+    note: "Local nitro devnode, real receipts. submit_landed rows carry a landed log; whether they write is recorded per-row as wrote_run_accepted (a submit only emits RunAccepted when it beats the player's prior best). submit_score0_replay_only rows replay a crashed run and never write. Public-chain figures need a funded deployer (human dependency).",
   };
 
   mkdirSync(resolve(root, "evidence"), { recursive: true });

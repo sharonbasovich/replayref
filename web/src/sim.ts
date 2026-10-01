@@ -51,7 +51,9 @@ export class Core {
   }
 
   terrain(seed: bigint): number[] {
-    return Array.from({ length: 25 }, (_, i) => Number(this.x.terrain_h_at(lo(seed), hi(seed), i)));
+    // terrain_h_at returns Q16.16 fixed-point — shift to integer px
+    return Array.from({ length: 25 }, (_, i) =>
+      Number(this.x.terrain_h_at(lo(seed), hi(seed), i) >> 16n));
   }
   padSegment(seed: bigint): number { return this.x.pad_segment(lo(seed), hi(seed)); }
   groundAt(seed: bigint, xPx: number): number { return Number(this.x.ground_px(lo(seed), hi(seed), xPx)); }

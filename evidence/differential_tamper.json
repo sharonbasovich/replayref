@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-01T09:12:51.857Z",
-  "corpus": "tests/corpus/valid.jsonl",
+  "generated_at": "2026-10-01T09:12:51.923Z",
+  "corpus": "tests/corpus/tamper.jsonl",
   "wasm": "target/wasm32-unknown-unknown/release/wasm_abi.wasm",
-  "n": 1200,
+  "n": 2398,
   "mismatches": 0,
   "mismatch_samples": []
 }

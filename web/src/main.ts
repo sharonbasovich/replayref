@@ -55,14 +55,16 @@ async function createChallengeFor(s: bigint): Promise<bigint> {
     seedToChallenge.set(BigInt(cs), i);
     if (BigInt(cs) === s) return i;
   }
-  const tx = await chain.wallet.writeContract({
-    address: chain.REFEREE, abi: CREATEABI, functionName: "createChallenge",
-    args: [BigInt.asUintN(64, s), 1n, 4102444800n, "0x0000000000000000000000000000000000000000"],
-  });
+  const tx = await chain.createChallengeTx(s, 1n, 4102444800n, "0x0000000000000000000000000000000000000000");
   await chain.pub.waitForTransactionReceipt({ hash: tx });
-  const id = await chain.pub.readContract({ address: chain.REFEREE, abi: NUMABI, functionName: "numChallenges" }) - 1n;
-  seedToChallenge.set(s, id);
-  return id;
+  // don't assume an index — creation is permissionless; re-scan for OUR seed
+  const n2 = await chain.pub.readContract({ address: chain.REFEREE, abi: NUMABI, functionName: "numChallenges" });
+  for (let i = 0n; i < n2; i++) {
+    const cs = await chain.pub.readContract({ address: chain.REFEREE, abi: F64ABI, functionName: "challengeSeed", args: [i] });
+    seedToChallenge.set(BigInt(cs), i);
+    if (BigInt(cs) === s) return i;
+  }
+  throw new Error(`created challenge for seed ${s} not found on chain`);
 }
 
 // ---- input ----
@@ -85,11 +87,17 @@ addEventListener("keyup", (e) => {
   if (e.key === "ArrowRight") keys.right = false;
 });
 const bindTouch = (id: string, k: "up" | "left" | "right") => {
-  const el = $(id);
-  const on = (v: boolean) => (e: Event) => { e.preventDefault(); touch[k] = v; };
+  const el = $(id) as HTMLButtonElement;
+  const on = (v: boolean) => (e: Event) => {
+    e.preventDefault();
+    if (v && e instanceof PointerEvent) el.setPointerCapture?.(e.pointerId);
+    touch[k] = v;
+  };
   el.addEventListener("pointerdown", on(true));
   el.addEventListener("pointerup", on(false));
   el.addEventListener("pointerleave", on(false));
+  el.addEventListener("pointercancel", on(false));
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
 };
 bindTouch("t-up", "up"); bindTouch("t-left", "left"); bindTouch("t-right", "right");
 
@@ -122,7 +130,9 @@ function startRun() {
   core.reset(seed);
   playing = true;
   lastBytes = null;
-  $("verdict").querySelector("#v-local")!.textContent = "local: —";
+  const vl = $("verdict").querySelector("#v-local")!;
+  vl.textContent = "local: —";
+  vl.className = "v-local";
   $("v-chain").textContent = chainUp ? "chain: —" : chainDownText();
   $("v-chain").className = "v-chain" + (chainUp ? "" : " warn");
   $("claim-row").classList.add("hidden");
@@ -146,7 +156,9 @@ function startReplay() {
   core.reset(seed);
   playing = true;
   lastBytes = null;
-  $("verdict").querySelector("#v-local")!.textContent = "local: —";
+  const vl = $("verdict").querySelector("#v-local")!;
+  vl.textContent = "local: —";
+  vl.className = "v-local";
   $("v-chain").textContent = chainUp ? "chain: —" : chainDownText();
   $("v-chain").className = "v-chain" + (chainUp ? "" : " warn");
   $("claim-row").classList.add("hidden");
@@ -366,10 +378,12 @@ async function main() {
   $("cheat-score").onclick = () => cheat("score");
   $("cheat-byte").onclick = () => cheat("byte");
   $("cheat-seed").onclick = () => cheat("seed");
-  chainUp = await chain.chainAlive();
+  // only probe the chain when the /rpc proxy can exist (local dev/preview);
+  // a public host has no node behind it — skip the pointless request
+  chainUp = IS_LOCAL ? await chain.chainAlive() : false;
   const banner = $("env-banner");
   if (chainUp) {
-    banner.textContent = "LOCAL SIMULATION — Arbitrum nitro devnode on this machine. Nothing here is a public chain.";
+    banner.textContent = "LOCAL SIMULATION — Arbitrum nitro devnode on this machine (chain 412346). Nothing here is a public chain.";
   } else if (IS_LOCAL) {
     banner.textContent = "LOCAL SIMULATION — nitro devnode not running; start it for chain verification.";
     $("v-chain").textContent = chainDownText();
@@ -382,8 +396,7 @@ async function main() {
     ($("btn-submit") as HTMLButtonElement).disabled = true;
     ($("board-lbl") as HTMLElement).textContent = "no chain";
   }
-  core.reset(seed);
-  draw();
   refreshBoard();
+  startRun();
 }
 main();

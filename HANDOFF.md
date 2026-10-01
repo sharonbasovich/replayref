@@ -53,23 +53,45 @@ cast send $REFEREE_ADDR \
   --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY
 ```
 
-Step 4 — wire the web app at the deployed referee:
+Step 4 — verify the challenge id and collect public-chain evidence.
 
-- `web/src/chain.ts`: set `REFEREE` to `REFEREE_ADDR`, `RPC_URL` to a Sepolia
-  RPC (e.g. `https://sepolia-rollup.arbitrum.io/rpc`), the chain def to
-  Arbitrum Sepolia (id 421614), and replace the dev-node fixture signer with
-  the intended public submitter flow.
-- `scripts/parity.mjs`: point `RPC` at Sepolia and re-run to regenerate
-  `evidence/parity.json`, `evidence/tamper.json`, `evidence/gas.json`.
+`createChallenge` is permissionless — do NOT assume the returned id is any
+particular index. Read the id from the `ChallengeCreated` event in the tx
+receipt and re-read `challengeSeed(id)` to confirm it is `7777777` before
+using it anywhere.
+
+- `scripts/sepolia-evidence.mjs` is the owner-executed script for this. It
+  reads `DEPLOYER_KEY`, `REFEREE_ADDR`, `SEPOLIA_RPC` from the environment
+  (the dev-node fixture key is hard-refused), checks the chain id is
+  Arbitrum Sepolia (421614), creates a challenge, verifies the returned id
+  carries seed 7777777, then runs verify/submit and writes
+  `evidence/sepolia.json` — labelled PUBLIC-CHAIN so it can never be
+  confused with local-devnode rows.
+- Do **not** repoint `scripts/parity.mjs` at Sepolia: its submit path uses
+  the public dev-node fixture key and is now guarded to refuse any chain
+  that is not localhost + chain id 412346. Use `sepolia-evidence.mjs` or
+  an owner wallet instead.
 - Update the README evidence table — label the new numbers PUBLIC-CHAIN
   (Arbitrum Sepolia), distinct from the local-devnode rows.
+
+Step 4b — optional: wire the web app at the deployed referee.
+
+- `web/src/chain.ts` keeps the fixture signer behind `assertLocalChain()`
+  — it refuses to sign unless the page is on localhost AND the chain id is
+  412346, so the public demo can never send a fixture-key transaction. To
+  offer real submission on Sepolia, add an owner-controlled wallet route
+  (e.g. a connect-wallet button) that submits only after the player signs —
+  and set `REFEREE`/`RPC_URL` to the Sepolia values. Until then the hosted
+  demo stays local-WASM verification only, which is what it says on the
+  page.
 
 Step 5 — HackQuest form: paste `REFEREE_ADDR` (Arbitrum Sepolia) into the
 final submission form. Registration itself is already complete.
 
 Artifact references: contract source `contracts/referee-stylus/` (stylus-sdk
 0.10.9), interface mirror `contracts/referee-stylus/IReferee.sol`, ABI glue
-`web/src/chain.ts`, demo challenge seed `7777777` / log `web/public/demo_log.json`.
+`web/src/chain.ts`, public-chain evidence script `scripts/sepolia-evidence.mjs`,
+demo challenge seed `7777777` / log `web/public/demo_log.json`.
 
 ## 3. Claim-map reminders for the submission text
 

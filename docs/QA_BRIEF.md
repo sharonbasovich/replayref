@@ -51,3 +51,34 @@ git log --reverse --format='%h %s'               # ordering: corpora precede ref
 
 `evidence/differential.json`, `evidence/parity.json`, `evidence/tamper.json`,
 `evidence/gas.json` — all local, all regenerable with the commands above.
+
+## Round 2 — review-fix verification (07aab87)
+
+Independent re-verification of the game/demo NO-GO items, in-browser on a
+fresh devnode + rebuilt dist (screenshots `docs/qa/r2-*.png`):
+
+| # | Fix under test | Result |
+|---|---|---|
+| R1 | landing pad render (Q16.16→px) | gold pad + label visible; replay lands on it (982t, 12294) |
+| R2 | first-load arrows (startRun in main) | HUD FLYING on load; ArrowUp burns fuel with zero clicks |
+| R3 | 390×844 touch long-press | ~13s hold drains fuel 900→0 continuously; no context menu/selection; clean release; pointercancel clears thrust, no stuck-on |
+| R4 | reset/new-seed state | 3 cycles: verdicts, log info, cheat output, styling all cleared; cheats re-disabled |
+| R5 | chain states | up: submit→ACCEPTED gas 175660 + leaderboard row; down: honest "not running"/"chain unreachable", submit disabled, local WASM still verifies |
+| R6 | 360px layout | zero horizontal overflow; controls-hint visible |
+
+Regression on prior round-1 bugs — all confirmed fixed:
+- `ScoreMismatch (computed=12294)` decoded on the +500 cheat (was generic `revert`)
+- chain-down verdict is honest text via the liveness probe
+- challenge cache recovers after a full devnode restart without page reload
+
+New this round (repo-side, re-runnable):
+- `node scripts/wasm_smoke.mjs` — ABI boundary regressions: pad fp→px,
+  `simulate_log` rejects len>450 (was truncate; now matches ref-core and the
+  contract), demo log still verifies through wasm
+- `cargo test -p referee-stylus` — 4 TestVM unit tests: challenge creation/
+  BadWindow, verify recompute + InvalidInputs (451B, NonZeroTrailer),
+  NotInWindow, ScoreMismatch carries computed, top-3 ordering, score-0 writes
+  nothing
+- fail-closed guards verified without transactions: `parity.mjs` refuses a
+  non-412346 chain (tested against anvil 31337); `sepolia-evidence.mjs`
+  refuses the fixture key and any non-421614 chain before any signature

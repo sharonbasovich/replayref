@@ -3,7 +3,7 @@
 // (web/public/ref_core.wasm). Catches ABI drift between the raw exports and
 // what main.ts/sim.ts assume. No chain, no keys.
 //
-//   node scripts/wasm_smoke.mjs
+//   node scripts/wasm_smoke.mjs [path-to-wasm]   (default web/public/ref_core.wasm)
 //
 // Exits non-zero on any failure.
 
@@ -12,7 +12,8 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const bytes = readFileSync(resolve(root, "web/public/ref_core.wasm"));
+const wasmFile = process.argv[2] ? resolve(process.argv[2]) : resolve(root, "web/public/ref_core.wasm");
+const bytes = readFileSync(wasmFile);
 const { instance } = await WebAssembly.instantiate(bytes);
 const x = instance.exports;
 

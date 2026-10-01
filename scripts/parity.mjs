@@ -75,6 +75,14 @@ async function ethVerify(id, inputsHex) {
 
 async function main() {
   // FAIL CLOSED: the fixture dev key must never sign outside the local devnode.
+  // Guard 1: the RPC endpoint itself must be loopback — a remote URL means
+  // this key would sign on a network it doesn't belong to.
+  const rpcHost = new URL(RPC).hostname.toLowerCase();
+  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(rpcHost)) {
+    console.error(`refusing to run: RPC host "${rpcHost}" is not loopback. The fixture key is local-only — no transactions sent.`);
+    process.exit(1);
+  }
+  // Guard 2: the loopback endpoint must actually serve the nitro devnode chain.
   const cid = await pub.getChainId();
   if (cid !== 412346) {
     console.error(`refusing to run: expected nitro devnode chain id 412346, got ${cid}. The fixture key is local-only — no transactions sent.`);

@@ -93,7 +93,7 @@ node scripts/differential.mjs               # -> evidence/differential.json
 node scripts/differential.mjs tests/corpus/tamper.jsonl evidence/differential_tamper.json
 
 # 2. Stylus referee on a local nitro devnode (fixture keys only, local chain)
-cargo test -p referee-stylus                # 4 contract unit tests via stylus-test TestVM
+cargo test -p referee-stylus                # 7 contract unit tests via stylus-test TestVM
 cd ~/nitro-devnode && ./run-dev-node.sh     # OffchainLabs nitro-devnode, chain 412346
 cargo build --release --target wasm32-unknown-unknown -p referee-stylus
 cd contracts/referee-stylus && cargo stylus deploy \
@@ -103,8 +103,10 @@ cd contracts/referee-stylus && cargo stylus deploy \
 #  workspace path-dependency `ref-core`; deploys deterministically to
 #  0x525c2aba45f66987217323e8a05ea400c65d06dc on a fresh node)
 node scripts/parity.mjs                     # -> evidence/parity|tamper|gas.json
-# parity.mjs refuses any chain that isn't 412346 — the fixture key is
-# local-only by guard, not by convention.
+# parity.mjs refuses non-loopback RPC hosts AND any chain that isn't
+# 412346 — the fixture key is local-only by guard, not by convention.
+npm ci --prefix scripts
+node scripts/guard_test.mjs                 # fail-closed guards vs mock RPC (no signing)
 
 # 3. web demo
 cd web && npm install && npm run dev        # proxies /rpc -> 127.0.0.1:8547
@@ -112,6 +114,10 @@ cd web && npm install && npm run dev        # proxies /rpc -> 127.0.0.1:8547
 
 Toolchain pinned: rust 1.97.1 (`wasm32-unknown-unknown`), cargo-stylus 0.10.9,
 stylus-sdk 0.10.9, foundry 1.8.3, node 22+, vite 7.1.7, viem 2.38.4.
+
+CI: `.github/workflows/ci.yml` runs the core/contract/WASM/guard checks on
+every code push (no wallets, keys, or network signing); it is a TEST gate
+only — the Pages demo deploy is a separate workflow (`.github/workflows/pages.yml`).
 
 ## Input log format
 

@@ -75,11 +75,22 @@ function currentAction(): number {
   if (u) return 1;
   return 0;
 }
+const EDITABLE = /^(INPUT|TEXTAREA|SELECT)$/;
+const isEditable = (t: EventTarget | null) =>
+  t instanceof HTMLElement && (EDITABLE.test(t.tagName) || t.isContentEditable);
 addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp") keys.up = true;
   if (e.key === "ArrowLeft") keys.left = true;
   if (e.key === "ArrowRight") keys.right = true;
-  if (e.key === "r" || e.key === "R") startRun();
+  if ((e.key === "r" || e.key === "R") && !isEditable(e.target)) startRun();
+  // game keys scroll small viewports — swallow them while a run is live,
+  // but never inside form fields or editable content (accessibility)
+  if (
+    playing && !isEditable(e.target) &&
+    ["ArrowUp", "ArrowLeft", "ArrowRight", "ArrowDown", " "].includes(e.key)
+  ) {
+    e.preventDefault();
+  }
 });
 addEventListener("keyup", (e) => {
   if (e.key === "ArrowUp") keys.up = false;
@@ -197,6 +208,13 @@ const cid = () => cidFor(seed);
 
 async function chainVerify(bytes: Uint8Array) {
   const vc = $("v-chain");
+  if (!chainUp) {
+    // no reachable chain — show the honest state without probing
+    vc.className = "v-chain warn";
+    vc.textContent = chainDownText();
+    ($("btn-submit") as HTMLButtonElement).disabled = true;
+    return;
+  }
   vc.textContent = "chain: verifying…";
   vc.className = "v-chain warn";
   try {
@@ -281,6 +299,11 @@ async function submitScore() {
 }
 
 async function refreshBoard() {
+  if (!chainUp) {
+    // no reachable chain — never probe; the hosted demo must make zero RPC calls
+    $("board").textContent = IS_LOCAL ? "chain unreachable" : "no chain connected — local demo only";
+    return;
+  }
   try {
     const rows = await chain.top(await cidFor(CHALLENGE_SEED));
     $("board").innerHTML = rows.length

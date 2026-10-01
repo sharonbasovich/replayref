@@ -1,0 +1,62 @@
+name: test
+
+# Local-only test gate. Runs the sim/contract/script checks that need no
+# wallets, no keys, and no network signing. Deploy of the Pages demo is a
+# separate workflow (pages.yml) — a green "test" run does NOT deploy, and a
+# deploy says nothing about these tests.
+
+on:
+  push:
+    paths:
+      - "core/**"
+      - "wasm-abi/**"
+      - "contracts/**"
+      - "scripts/**"
+      - "web/src/**"
+      - "web/public/ref_core.wasm"
+      - "tests/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Rust + wasm32 target
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup default stable
+
+      - name: ref-core native tests (13)
+        run: cargo test --release -p ref-core
+
+      - name: referee-stylus TestVM tests (7)
+        run: cargo test -p referee-stylus
+
+      - name: Build native sim + wasm-abi
+        run: |
+          cargo build --release -p ref-core
+          cargo build --release -p wasm-abi --target wasm32-unknown-unknown
+
+      - name: WASM boundary smoke (committed browser wasm)
+        run: node scripts/wasm_smoke.mjs
+
+      - name: WASM boundary smoke (fresh build)
+        run: node scripts/wasm_smoke.mjs target/wasm32-unknown-unknown/release/wasm_abi.wasm
+
+      - name: Differential — native vs wasm (1200-log corpus)
+        run: node scripts/differential.mjs tests/corpus/valid.jsonl ci-evidence/differential.json
+
+      - name: Script fail-closed guards (mock RPC, no signing)
+        run: |
+          npm ci --prefix scripts
+          node scripts/guard_test.mjs

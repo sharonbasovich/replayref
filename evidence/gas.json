@@ -1,26 +1,26 @@
 {
-  "generated_at": "2026-09-30T18:23:57.355Z",
+  "generated_at": "2026-10-01T07:00:29.953Z",
   "chain": "nitro-devnode local (chain id 412346)",
   "referee": "0x525c2aba45f66987217323e8a05ea400c65d06dc",
   "rows": [
     {
       "target_ticks": null,
       "ticks": 300,
-      "tx": "0x45c8f5a26c541b8e004b7395652346cc3837c6ca4b6a81ed5d2f9a67b4c3a62a",
+      "tx": "0xc5a8f19ee01503648f43fe440454bfdee37ddb8eaa7f02a937e1aae51ef10530",
       "gas_used": "71956",
       "status": "success"
     },
     {
       "target_ticks": null,
       "ticks": 904,
-      "tx": "0x68d704561a34e838ff0400cf633cf91e2c0195a33661fec88bbcc8dcdef2b123",
+      "tx": "0xb23669dc22fafdaa1745756cba559d89af052611dc3af815eb11d2b0391d8ea9",
       "gas_used": "81068",
       "status": "success"
     },
     {
       "target_ticks": null,
       "ticks": 1045,
-      "tx": "0xd6d652fb60b3b4b8d5793dacededbf88869d39aa9c86d3c37884b03bd1b6fbe5",
+      "tx": "0xb5633bcc10964d69909ecd0af542ebce9dc3141cc6687cd377a99e26919ba106",
       "gas_used": "83405",
       "status": "success"
     },

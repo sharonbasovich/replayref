@@ -30,6 +30,16 @@ const seedToChallenge = new Map<bigint, bigint>();
 async function challengeForSeed(s: bigint): Promise<bigint> {
   const hit = seedToChallenge.get(s);
   if (hit !== undefined) return hit;
+  return await createChallengeFor(s);
+}
+
+// cached id may point at a pre-restart chain — drop it and rebuild once
+async function challengeForSeedFresh(s: bigint): Promise<bigint> {
+  seedToChallenge.delete(s);
+  return challengeForSeed(s);
+}
+
+async function createChallengeFor(s: bigint): Promise<bigint> {
   const n = await chain.pub.readContract({ address: chain.REFEREE, abi: NUMABI, functionName: "numChallenges" });
   for (let i = 0n; i < n; i++) {
     const cs = await chain.pub.readContract({ address: chain.REFEREE, abi: F64ABI, functionName: "challengeSeed", args: [i] });
@@ -164,8 +174,12 @@ async function chainVerify(bytes: Uint8Array) {
   vc.textContent = "chain: verifying…";
   vc.className = "v-chain warn";
   try {
-    const id = await cid();
-    const r = await chain.verify(id, ("0x" + bytesToHex(bytes)) as Hex);
+    let id = await cid();
+    let r = await chain.verify(id, ("0x" + bytesToHex(bytes)) as Hex);
+    if (!r.ok && r.errorName === "ChallengeNotFound") {
+      id = await challengeForSeedFresh(seed);
+      r = await chain.verify(id, ("0x" + bytesToHex(bytes)) as Hex);
+    }
     vc.className = "v-chain " + (r.ok ? "ok" : "bad");
     vc.textContent = r.ok
       ? `chain (local devnode): score ${r.score} ✓`

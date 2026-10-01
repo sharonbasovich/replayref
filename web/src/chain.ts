@@ -28,11 +28,11 @@ const ABI = parseAbi([
   "function top(uint256 id, uint256 i) view returns (address player, uint256 score)",
   "event ChallengeCreated(uint256 indexed id, uint64 seed, uint64 startTs, uint64 endTs)",
   "event RunAccepted(uint256 indexed id, address indexed player, bytes32 inputsHash, uint256 score)",
-  "error BadWindow(uint64 startTs, uint64 endTs)",
+  "error BadWindow()",
   "error ChallengeNotFound(uint256 id)",
-  "error InvalidInputs(uint8 reason)",
-  "error ScoreMismatch(uint256 computed)",
-  "error NotInWindow(uint64 now_, uint64 startTs, uint64 endTs)",
+  "error InvalidInputs()",
+  "error ScoreMismatch(uint32 computed)",
+  "error NotInWindow(uint64 start, uint64 end, uint64 now)",
 ]);
 
 export const pub = createPublicClient({ chain: nitroLocal, transport: http(RPC_URL) });
@@ -53,6 +53,14 @@ export interface VerifyResult {
   score?: bigint;
   errorName?: string;
   errorDetail?: string;
+}
+
+export { ABI };
+
+// probe the node directly — the vite /rpc proxy turns a dead devnode into an
+// HTTP 500 that does not look like "fetch failed" or ECONNREFUSED
+async function nodeDown(): Promise<boolean> {
+  try { await pub.getBlockNumber({ cacheTime: 0 }); return false; } catch { return true; }
 }
 
 function decodeRevert(e: any): { name: string; detail?: string } {
@@ -86,8 +94,7 @@ export async function verify(id: bigint, inputs: Hex): Promise<VerifyResult> {
     });
     return { ok: true, score };
   } catch (e: any) {
-    if (e?.cause?.code === "ECONNREFUSED" || String(e).includes("fetch failed"))
-      throw new ChainDown("RPC unreachable");
+    if (await nodeDown()) throw new ChainDown("RPC unreachable");
     const { name, detail } = decodeRevert(e);
     return { ok: false, errorName: name, errorDetail: detail };
   }
@@ -114,7 +121,7 @@ export async function submit(id: bigint, inputs: Hex, claimed: bigint): Promise<
     });
     return { ok: true, tx, gas: r.gasUsed, score };
   } catch (e: any) {
-    if (String(e).includes("fetch failed")) throw new ChainDown("RPC unreachable");
+    if (await nodeDown()) throw new ChainDown("RPC unreachable");
     const { name, detail } = decodeRevert(e);
     return { ok: false, errorName: name, errorDetail: detail };
   }
@@ -129,7 +136,10 @@ export async function top(id: bigint): Promise<TopRow[]> {
         address: REFEREE, abi: ABI, functionName: "top", args: [id, BigInt(i)],
       });
       if (player !== "0x0000000000000000000000000000000000000000") rows.push({ player, score });
-    } catch { break; }
+    } catch (e) {
+      if (await nodeDown()) throw new ChainDown("RPC unreachable");
+      break;
+    }
   }
   return rows;
 }

@@ -52,11 +52,6 @@ const ABI = parseAbi([
 ]);
 
 const j = (p) => readFileSync(resolve(root, p), "utf8").trim().split("\n").map(JSON.parse);
-const valid = j("tests/corpus/valid.jsonl");
-const tamper = j("tests/corpus/tamper.jsonl");
-const nativeCh = new Map(j("tests/out/native_at_challenge.jsonl").map((r) => [r.id, r.result]));
-const nativeBase = new Map(j("tests/out/native_base.jsonl").map((r) => [r.id, r.result]));
-const nativeTampCh = new Map(j("tests/out/native_tamper_challenge.jsonl").map((r) => [r.id, r.result]));
 
 const errName = (e) =>
   e?.cause?.data?.errorName ?? e?.data?.errorName ?? e?.shortMessage?.match(/Error: (\w+)/)?.[1] ?? "revert";
@@ -88,6 +83,12 @@ async function main() {
     console.error(`refusing to run: expected nitro devnode chain id 412346, got ${cid}. The fixture key is local-only — no transactions sent.`);
     process.exit(1);
   }
+  // corpus loads AFTER the fail-closed guards — a refused run touches no files
+  const valid = j("tests/corpus/valid.jsonl");
+  const tamper = j("tests/corpus/tamper.jsonl");
+  const nativeCh = new Map(j("tests/out/native_at_challenge.jsonl").map((r) => [r.id, r.result]));
+  const nativeBase = new Map(j("tests/out/native_base.jsonl").map((r) => [r.id, r.result]));
+  const nativeTampCh = new Map(j("tests/out/native_tamper_challenge.jsonl").map((r) => [r.id, r.result]));
   const block0 = await pub.getBlockNumber();
   // 1. create a fresh challenge and pin the REAL id from the ChallengeCreated
   // event — never assume an index (creation is permissionless; another caller
